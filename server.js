@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const bcrypt = require('bcrypt-nodejs');
 const { response } = require('express');
 const knex = require('knex')({
   client: 'pg',
@@ -11,69 +12,58 @@ const knex = require('knex')({
   } 
 });
 
-// knex.select('*').from('users').then(data => {
-//   console.log(data);
-// });
-
 const app = express();
-
-const datab = {
-  users: [
-    {
-      id: '1',
-      name: 'Jim',
-      email: 'Jim@jimworld.com',
-      password: 'admin',
-      entries: 0,
-      joined: new Date()
-    },
-    {
-      id: '2',
-      name: 'Tim',
-      email: 'Tim@timworld.com',
-      password: 'admin',
-      entries: 0,
-      joined: new Date()
-    }
-  ]
-};
 
 app.use(express.json());
 app.use(cors());
 
 app.get('/', (req, res) => {
-  res.send(datab.users);
+  // res.send(datab.users);
 });
 
 app.post('/signin', (req, res) => {
-  if(req.body.email === datab.users[0].email && 
-    req.body.password === datab.users[0].password) {
-      res.json(datab.users[0]);
-    } else {
-      res.status(400).json('Incorrect Email or Password');
-    }
+  knex.select('email', 'hash').from('login')
+    .where('email', '=', req.body.email)
+    .then(data => {
+      if(bcrypt.compareSync(req.body.password, data[0].hash)){
+        return knex.select('*').from('users').where('email', '=', req.body.email)
+        .then(user => {
+          res.json(user[0])
+        })
+        .catch(err => res.status(400).json('User not Found'));
+      } else {
+        res.status(400).json('Wrong Credentials');
+      }
+    })
+    .catch(err => res.status(400).json('Wrong Credentials'));
 });
 
 app.post('/register', (req, res) => {
   const { name, email, password } = req.body;
-  // datab.users.push({
-  //   id: '11',
-  //   name: name,
-  //   email: email,
-  //   entries: 0,
-  //   joined: new Date()
-  // });
-  knex('users')
-    .returning('*')
-    .insert({
-      email: email,
-      name: name,
-      joined: new Date()
+  const hash = bcrypt.hashSync(password);
+    knex.transaction(trx => {
+      trx.insert({
+        hash: hash,
+        email: email,
+      })
+      .into('login')
+      .returning('email')
+      .then(loginEmail => {
+        return trx('users')
+        .returning('*')
+        .insert({
+          email: loginEmail[0],
+          name: name,
+          joined: new Date()
+        })
+          .then(user => {
+            res.json(user[0]);
+        })
+      })
+      .then(trx.commit)
+      .catch(trx.rollback);
     })
-      .then(user => {
-        res.json(user[0]);
-    })
-      .catch(err => res.status(400).json('Your Request Could not be Fulfilled'));
+    .catch(err => res.status(400).json('Your Request Could not be Fulfilled'));
 });
 
 app.get('/profile/:id', (req, res) => {
