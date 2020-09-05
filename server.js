@@ -24,7 +24,7 @@ app.use(express.json());
 app.use(cors());
 
 app.get('/', (req, res) => {
-  // res.send(datab.users);
+  res.send(`It's working`);
 });
 
 app.post('/signin', (req, res) => { signin.handleLogin(req, res, knex, bcrypt) });
