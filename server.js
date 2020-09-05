@@ -37,6 +37,6 @@ app.put('/image', (req, res) => { images.handleEntries(req, res, knex) });
 
 app.post('/imageurl', (req, res) => { images.handleAPICall(req, res) });
 
-app.listen(3000, () => {
-  console.log(`I'm Alive!!!!`);
+app.listen(process.env.PORT || 3000, () => {
+  console.log(`I'm Alive on port ${process.env.PORT}!`);
 });
