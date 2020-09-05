@@ -2,6 +2,12 @@ const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcrypt-nodejs');
 const { response } = require('express');
+
+const register = require('./controllers/register');
+const signin = require('./controllers/signin');
+const profile = require('./controllers/profile');
+const images = require('./controllers/image');
+
 const knex = require('knex')({
   client: 'pg',
   connection: {
@@ -21,78 +27,16 @@ app.get('/', (req, res) => {
   // res.send(datab.users);
 });
 
-app.post('/signin', (req, res) => {
-  knex.select('email', 'hash').from('login')
-    .where('email', '=', req.body.email)
-    .then(data => {
-      if(bcrypt.compareSync(req.body.password, data[0].hash)){
-        return knex.select('*').from('users').where('email', '=', req.body.email)
-        .then(user => {
-          res.json(user[0])
-        })
-        .catch(err => res.status(400).json('User not Found'));
-      } else {
-        res.status(400).json('Wrong Credentials');
-      }
-    })
-    .catch(err => res.status(400).json('Wrong Credentials'));
-});
+app.post('/signin', (req, res) => { signin.handleLogin(req, res, knex, bcrypt) });
 
-app.post('/register', (req, res) => {
-  const { name, email, password } = req.body;
-  const hash = bcrypt.hashSync(password);
-    knex.transaction(trx => {
-      trx.insert({
-        hash: hash,
-        email: email,
-      })
-      .into('login')
-      .returning('email')
-      .then(loginEmail => {
-        return trx('users')
-        .returning('*')
-        .insert({
-          email: loginEmail[0],
-          name: name,
-          joined: new Date()
-        })
-          .then(user => {
-            res.json(user[0]);
-        })
-      })
-      .then(trx.commit)
-      .catch(trx.rollback);
-    })
-    .catch(err => res.status(400).json('Your Request Could not be Fulfilled'));
-});
+app.post('/register', (req, res) => { register.handleRegister(req, res, knex, bcrypt) });
 
-app.get('/profile/:id', (req, res) => {
-  const { id } = req.params;
-  knex('users').where({
-    id: id
-  }).select('*')
-  .then(user => {
-    if(user.length) {
-      res.json(user[0])
-    } else {
-      res.status(400).json('User Not Found');
-    }
-  });
-});
+app.get('/profile/:id', (req, res) => { profile.handleRequest(req, res, knex) });
 
+app.put('/image', (req, res) => { images.handleEntries(req, res, knex) });
 
-app.put('/image', (req, res) => {
-  const { id } = req.body;
-  knex('users')
-  .where('id', '=', id)
-  .increment('entries', 1)
-  .returning('entries')
-  .then(entries => {
-    res.json(Number(entries[0]));
-  })
-  .catch(err => res.status(400).json('Bad Request'));
-});
+app.post('/imageurl', (req, res) => { images.handleAPICall(req, res) });
 
 app.listen(3000, () => {
-  console.log('I\'m Alive!!!!');
+  console.log(`I'm Alive!!!!`);
 });
