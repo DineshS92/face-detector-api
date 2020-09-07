@@ -5,6 +5,9 @@ const app = new Clarifai.App({
 });
 
 const handleAPICall = (req, res) => {
+  if(req.body.input === '') {
+    return res.json('Empty I/P field');
+  }
   app.models
     .predict(Clarifai.FACE_DETECT_MODEL, req.body.input)
     .then(data => {
